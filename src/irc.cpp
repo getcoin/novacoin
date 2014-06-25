@@ -309,7 +309,7 @@ void ThreadIRCSeed2(void* parg)
             // int channel_number = GetRandInt(5);
 
             // Channel number is always 0 for initial release
-            int channel_number = 0;
+            int channel_number = 10;
             Send(hSocket, strprintf("JOIN #novacoin%02d\r", channel_number).c_str());
             Send(hSocket, strprintf("WHO #novacoin%02d\r", channel_number).c_str());
         }
