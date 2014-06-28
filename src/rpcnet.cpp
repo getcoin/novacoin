@@ -134,3 +134,45 @@ Value sendalert(const Array& params, bool fHelp)
         result.push_back(Pair("nCancel", alert.nCancel));
     return result;
 }
+
+// ppcoin: send checkpoint
+Value sendcheckpoint(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() > 2 || params.size() < 1 )
+        throw runtime_error(
+            "sendcheckpoint <privatekey> [checkpointhash]\n"
+            "<privatekey> is hex string of checkpoint master private key\n"
+            "<checkpointhash> is the hash of checkpoint block\n");
+ 
+    CSyncCheckpoint checkpoint;
+    CKey key;
+ 
+    // TODO: omit checkpointhash parameter
+    if (params.size() > 1)
+    {
+        checkpoint.hashCheckpoint = uint256(params[1].get_str());
+        if (!mapBlockIndex.count(checkpoint.hashCheckpoint))
+            throw runtime_error(
+                "Provided checkpoint block is not on main chain\n");
+    }
+ 
+    CDataStream sMsg;
+    sMsg << (CUnsignedSyncCheckpoint)checkpoint;
+    checkpoint.vchMsg = vector<unsigned char>(sMsg.begin(), sMsg.end());
+ 
+    vector<unsigned char> vchPrivKey = ParseHex(params[0].get_str());
+    key.SetPrivKey(CPrivKey(vchPrivKey.begin(), vchPrivKey.end())); // if key is not correct openssl may crash
+    if (!key.Sign(Hash(checkpoint.vchMsg.begin(), checkpoint.vchMsg.end()), checkpoint.vchSig))
+        throw runtime_error(
+            "Unable to sign checkpoint, check private key?\n");
+ 
+    if(!checkpoint.ProcessSyncCheckpoint(NULL))
+       throw runtime_error(
+            "Failed to process checkpoint.\n");
+    // Relay checkpoint
+    CRITICAL_BLOCK(cs_vNodes)
+        BOOST_FOREACH(CNode* pnode, vNodes)
+            checkpoint.RelayTo(pnode);
+
+    return Value::null;
+}
